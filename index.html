@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Point Grid Game</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: linear-gradient(120deg, #e0eafc 0%, #cfdef3 100%);
+      margin: 0; padding: 0;
+    }
+    .container {
+      max-width: 650px;
+      margin: 48px auto;
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.12);
+      padding: 32px 32px 24px 32px;
+      position: relative;
+    }
+    h1 {
+      text-align: center;
+      font-size: 2.1em;
+      color: #2a3a5e;
+      margin-bottom: 12px;
+      letter-spacing: 1px;
+    }
+    #grid {
+      display: block;
+      margin: 32px auto 0 auto;
+      background: #f3f6fa;
+      border: 2px solid #2a3a5e;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(44,62,80,0.08);
+    }
+    #checkBtn {
+      display: block;
+      margin: 0 auto 16px auto;
+      padding: 10px 32px;
+      font-size: 1.15em;
+      background: linear-gradient(90deg, #4f8cff 0%, #38c6ff 100%);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(44,62,80,0.08);
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    #checkBtn:hover {
+      background: linear-gradient(90deg, #38c6ff 0%, #4f8cff 100%);
+    }
+    #feedback {
+      text-align: center;
+      font-size: 1.15em;
+      margin-top: 16px;
+      min-height: 24px;
+      color: #2a3a5e;
+      font-weight: 500;
+    }
+    #target {
+      text-align: center;
+      font-size: 1.25em;
+      margin-bottom: 8px;
+      color: #4f8cff;
+      font-weight: 600;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+  <h1 style="text-align:center; font-size:2.3em; color:#2a3a5e; margin-bottom:10px; font-weight:800; letter-spacing:2px;">Point Finder Game!</h1>
+  <canvas id="confetti" style="position:fixed; left:0; top:0; pointer-events:none; z-index:999;" width="1000" height="800"></canvas>
+    <div id="target" style="text-align:center; font-size:1.25em; margin-bottom:18px; color:#4f8cff; font-weight:600; letter-spacing:1px;"></div>
+    <div style="margin-bottom:18px; text-align:center;">
+      <button id="checkBtn" style="display:inline-block; margin:0 auto; padding:12px 40px; font-size:1.2em; background:linear-gradient(90deg,#4f8cff 0%,#38c6ff 100%); color:#fff; border:none; border-radius:12px; box-shadow:0 2px 12px rgba(44,62,80,0.10); cursor:pointer; font-weight:600; letter-spacing:1px;">Check</button>
+    </div>
+    <div style="display:flex; justify-content:center; align-items:center;">
+      <canvas id="grid" width="700" height="700" style="display:block;"></canvas>
+    </div>
+    <button id="hintBtn" style="display:block; margin:22px auto 0 auto; padding:10px 32px; font-size:1.1em; background:linear-gradient(90deg,#38c6ff 0%,#4f8cff 100%); color:#fff; border:none; border-radius:10px; box-shadow:0 2px 8px rgba(44,62,80,0.08); cursor:pointer; font-weight:500;">Show Hint</button>
+    <div id="hint" style="text-align:center; font-size:1.1em; color:#2a3a5e; margin-top:14px; min-height:24px; display:none;"></div>
+    <div id="feedback" style="text-align:center; font-size:1.15em; margin-top:18px; min-height:24px; color:#2a3a5e; font-weight:500;"></div>
+    <div id="victory" style="font-size:1.15em; color:#38c6ff; font-weight:600; text-align:center; margin-top:32px;">Victories: 0</div>
+  </div>
+  <script>
+    const canvas = document.getElementById('grid');
+    const ctx = canvas.getContext('2d');
+  const minCoord = -10;
+  const maxCoord = 10;
+  const gridSize = maxCoord - minCoord;
+  const margin = 60; // more margin for labels
+  const cellSize = (canvas.width - 2*margin) / gridSize;
+    let dragging = false;
+    let selected = {x:0, y:0};
+    let target = randomPoint();
+
+    function randomPoint() {
+      // Single-digit integer, can be negative or positive
+      let vals = [-9,-8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9];
+      return {
+        x: vals[Math.floor(Math.random()*vals.length)],
+        y: vals[Math.floor(Math.random()*vals.length)]
+      };
+    }
+
+    function drawGrid() {
+      ctx.clearRect(0,0,canvas.width,canvas.height);
+      ctx.save();
+      ctx.translate(margin, margin);
+      ctx.strokeStyle = '#e0eafc';
+      // Draw grid lines
+      for(let i=0; i<=gridSize; i++) {
+        let pos = i*cellSize;
+        ctx.beginPath();
+        ctx.moveTo(pos, 0);
+        ctx.lineTo(pos, cellSize*gridSize);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(0, pos);
+        ctx.lineTo(cellSize*gridSize, pos);
+        ctx.stroke();
+      }
+      // Draw axes (x=0, y=0)
+      ctx.strokeStyle = '#4f8cff';
+      ctx.lineWidth = 3;
+      // y-axis
+      let zeroX = (-minCoord)*cellSize;
+      ctx.beginPath();
+      ctx.moveTo(zeroX, 0);
+      ctx.lineTo(zeroX, cellSize*gridSize);
+      ctx.stroke();
+      // x-axis
+      let zeroY = (maxCoord)*cellSize;
+      ctx.beginPath();
+      ctx.moveTo(0, zeroY);
+      ctx.lineTo(cellSize*gridSize, zeroY);
+      ctx.stroke();
+      ctx.lineWidth = 1;
+      // Draw axis labels
+      ctx.font = '13px Segoe UI, Arial';
+      ctx.fillStyle = '#2a3a5e';
+      ctx.textAlign = 'center';
+      // x labels (between grid lines, halfway through first cell)
+      for(let i=minCoord; i<=maxCoord; i++) {
+        let x = (i-minCoord+0.5)*cellSize;
+        ctx.fillText(i, x, zeroY+22);
+      }
+      // y labels (between grid lines, halfway through first cell)
+      ctx.textAlign = 'right';
+      for(let i=minCoord; i<=maxCoord; i++) {
+        let y = (maxCoord-i+0.5)*cellSize;
+        if(i !== 0) ctx.fillText(i, zeroX-14, y+6);
+      }
+      ctx.restore();
+  // Axis titles at ends
+  ctx.save();
+  ctx.font = 'bold 20px Segoe UI, Arial';
+  ctx.fillStyle = '#38c6ff';
+  // x label at end of x-axis line, with extra space
+  ctx.textAlign = 'center';
+  ctx.fillText('x', margin + cellSize*gridSize + 24, margin + zeroY);
+  // y label at end of y-axis line, with extra space
+  ctx.textAlign = 'left';
+  ctx.fillText('y', margin + zeroX, margin - 20);
+  ctx.restore();
+      // Draw draggable point
+      ctx.save();
+      ctx.translate(margin, margin);
+      drawPoint(selected.x, selected.y, '#007bff');
+      ctx.restore();
+    }
+
+    function drawPoint(x, y, color) {
+      // Snap to intersection
+      let px = (x-minCoord)*cellSize;
+      let py = (maxCoord-y)*cellSize;
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(px, py, cellSize/3, 0, 2*Math.PI);
+      ctx.fillStyle = color;
+      ctx.shadowColor = '#38c6ff';
+      ctx.shadowBlur = 10;
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#222';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function updateTargetDisplay() {
+      document.getElementById('target').textContent = `Find this point: (${target.x}, ${target.y})`;
+    }
+
+    function getGridCoords(mx, my) {
+      // Adjust for margin, snap to nearest intersection
+      let x = Math.round((mx - margin) / cellSize) + minCoord;
+      let y = maxCoord - Math.round((my - margin) / cellSize);
+      x = Math.max(minCoord, Math.min(maxCoord, x));
+      y = Math.max(minCoord, Math.min(maxCoord, y));
+      return {x, y};
+    }
+
+    canvas.addEventListener('mousedown', function(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = e.clientX - rect.left;
+      const my = e.clientY - rect.top;
+      // Only start drag if clicking on the draggable point
+      let px = (selected.x-minCoord)*cellSize + margin;
+      let py = (maxCoord-selected.y)*cellSize + margin;
+      if(Math.hypot(mx-px, my-py) < cellSize/2) {
+        dragging = true;
+      }
+    });
+
+    canvas.addEventListener('mousemove', function(e) {
+      if(dragging) {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const pt = getGridCoords(mx, my);
+        selected.x = pt.x;
+        selected.y = pt.y;
+        drawGrid();
+      }
+    });
+
+    canvas.addEventListener('mouseup', function(e) {
+      dragging = false;
+    });
+    canvas.addEventListener('mouseleave', function(e) {
+      dragging = false;
+    });
+
+    let victories = 0;
+    function getHint(selected, target) {
+      let dx = target.x - selected.x;
+      let dy = target.y - selected.y;
+      let hint = '';
+      let moves = [];
+      if(dx > 0) moves.push('right');
+      if(dx < 0) moves.push('left');
+      if(dy > 0) moves.push('up');
+      if(dy < 0) moves.push('down');
+      if(moves.length === 0) {
+        hint = 'You are at the correct point!';
+      } else {
+        hint = 'Hint: Move ' + moves.join(' and ') + '. ';
+        // Educational explanation
+        if(Math.abs(dx) > 0) {
+          hint += `The x-coordinate is ${selected.x}, but you need ${target.x}. `;
+        }
+        if(Math.abs(dy) > 0) {
+          hint += `The y-coordinate is ${selected.y}, but you need ${target.y}. `;
+        }
+        // Closer/farther
+        let prevDist = getHint.prevDist ?? null;
+        let dist = Math.abs(dx) + Math.abs(dy);
+        if(prevDist !== null) {
+          if(dist < prevDist) {
+            hint += 'You are getting closer!';
+          } else if(dist > prevDist) {
+            hint += 'You are getting farther away.';
+          }
+        }
+        getHint.prevDist = dist;
+      }
+      return hint;
+    }
+
+    canvas.addEventListener('mousemove', function(e) {
+      if(dragging) {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        const pt = getGridCoords(mx, my);
+        selected.x = pt.x;
+        selected.y = pt.y;
+        drawGrid();
+        // Only update hint if visible
+        if(document.getElementById('hint').style.display !== 'none') {
+          document.getElementById('hint').textContent = getHint(selected, target);
+        }
+      }
+    });
+
+    function launchConfetti() {
+      const confettiCanvas = document.getElementById('confetti');
+      const ctx = confettiCanvas.getContext('2d');
+      const W = confettiCanvas.width = window.innerWidth;
+      const H = confettiCanvas.height = window.innerHeight;
+      let confettiPieces = [];
+      let colors = ['#4f8cff','#38c6ff','#ffb347','#ff6961','#77dd77','#f3f6fa','#cfdef3'];
+      for(let i=0;i<120;i++) {
+        confettiPieces.push({
+          x: Math.random()*W,
+          y: -20-Math.random()*H/2,
+          r: 6+Math.random()*8,
+          d: Math.random()*W/2,
+          color: colors[Math.floor(Math.random()*colors.length)],
+          tilt: Math.random()*10,
+          tiltAngle: 0,
+          tiltAngleInc: 0.05+Math.random()*0.07
+        });
+      }
+      let frame = 0;
+      function drawConfetti() {
+        ctx.clearRect(0,0,W,H);
+        for(let i=0;i<confettiPieces.length;i++) {
+          let p = confettiPieces[i];
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y, p.r, p.r/2, p.tilt, 0, 2*Math.PI);
+          ctx.fillStyle = p.color;
+          ctx.fill();
+        }
+      }
+      function updateConfetti() {
+        for(let i=0;i<confettiPieces.length;i++) {
+          let p = confettiPieces[i];
+          p.y += 4 + Math.sin(frame/10+p.d)*2;
+          p.x += Math.sin(frame/15+p.d)*2;
+          p.tiltAngle += p.tiltAngleInc;
+          p.tilt = Math.sin(p.tiltAngle)*10;
+        }
+      }
+      function animate() {
+        frame++;
+        updateConfetti();
+        drawConfetti();
+        if(frame<80) {
+          requestAnimationFrame(animate);
+        } else {
+          ctx.clearRect(0,0,W,H);
+        }
+      }
+      animate();
+    }
+
+    document.getElementById('checkBtn').addEventListener('click', function() {
+      if(selected.x === target.x && selected.y === target.y) {
+        victories++;
+        document.getElementById('victory').textContent = `Victories: ${victories}`;
+        document.getElementById('feedback').textContent = 'Correct! New point...';
+        launchConfetti();
+        target = randomPoint();
+        getHint.prevDist = null;
+        setTimeout(()=>{
+          document.getElementById('feedback').textContent = '';
+          selected = {x:0, y:0};
+          updateTargetDisplay();
+          drawGrid();
+          document.getElementById('hint').style.display = 'none';
+        }, 1200);
+      } else {
+        document.getElementById('feedback').textContent = 'Try again!';
+        // Only update hint if visible
+        if(document.getElementById('hint').style.display !== 'none') {
+          document.getElementById('hint').textContent = getHint(selected, target);
+        }
+      }
+    });
+
+    const hintBtn = document.getElementById('hintBtn');
+    const hintDiv = document.getElementById('hint');
+    hintBtn.addEventListener('click', function() {
+      if(hintDiv.style.display === 'none') {
+        hintDiv.style.display = 'block';
+        hintDiv.textContent = getHint(selected, target);
+        hintBtn.textContent = 'Hide Hint';
+      } else {
+        hintDiv.style.display = 'none';
+        hintBtn.textContent = 'Show Hint';
+      }
+    });
+
+  updateTargetDisplay();
+  drawGrid();
+  </script>
+</body>
+</html>
